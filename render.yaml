@@ -1,0 +1,33 @@
+services:
+  # Backend API Service
+  - type: web
+    name: skynest-backend-api
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_SSL
+        value: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: FRONTEND_URL
+        value: https://nadeeshanj.github.io
+      - key: DATABASE_URL
+        fromDatabase:
+          name: skynest-database
+          property: connectionString
+
+databases:
+  # PostgreSQL Database
+  - name: skynest-database
+    plan: free
+    databaseName: skynest_db
+    user: skynest_user

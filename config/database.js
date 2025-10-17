@@ -2,42 +2,69 @@ const { Pool } = require('pg');
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Use DATABASE_URL if provided (Render/Heroku style), otherwise use individual vars
+const databaseUrl = process.env.DATABASE_URL;
+
 // Configuration for raw SQL queries
-const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'skynest',
-    password: process.env.DB_PASSWORD || 'thashira123',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    ssl: process.env.DB_SSL === 'true' ? {
+const pool = databaseUrl 
+  ? new Pool({
+      connectionString: databaseUrl,
+      ssl: {
         rejectUnauthorized: false
-    } : undefined
-});
+      }
+    })
+  : new Pool({
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'skynest',
+      password: process.env.DB_PASSWORD || 'thashira123',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      ssl: process.env.DB_SSL === 'true' ? {
+          rejectUnauthorized: false
+      } : undefined
+    });
 
 // Configuration for Sequelize ORM
-const sequelize = new Sequelize(
-    process.env.DB_NAME || 'skynest',
-    process.env.DB_USER || 'postgres',
-    process.env.DB_PASSWORD || '',
-    {
+const sequelize = databaseUrl
+  ? new Sequelize(databaseUrl, {
+      dialect: 'postgres',
+      logging: process.env.NODE_ENV === 'development' ? console.log : false,
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+      },
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false
+        }
+      }
+    })
+  : new Sequelize(
+      process.env.DB_NAME || 'skynest',
+      process.env.DB_USER || 'postgres',
+      process.env.DB_PASSWORD || '',
+      {
         host: process.env.DB_HOST || 'localhost',
         dialect: 'postgres',
         port: parseInt(process.env.DB_PORT || '5432'),
         logging: process.env.NODE_ENV === 'development' ? console.log : false,
         pool: {
-            max: 5,
-            min: 0,
-            acquire: 30000,
-            idle: 10000
+          max: 5,
+          min: 0,
+          acquire: 30000,
+          idle: 10000
         },
         dialectOptions: {
-            ssl: process.env.DB_SSL === 'true' ? {
-                require: true,
-                rejectUnauthorized: false
-            } : false
+          ssl: process.env.DB_SSL === 'true' ? {
+              require: true,
+              rejectUnauthorized: false
+          } : false
         }
-    }
-);
+      }
+    );
 
 // Test database connection
 const testConnection = async () => {
