@@ -101,8 +101,26 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+// CORS configuration - Support both local development and production
+const allowedOrigins = [
+  'http://localhost:3000',  // Local development
+  'https://nadeeshanj.github.io'  // GitHub Pages production
+];
+
+app.use(cors({ 
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true 
+}));
+
 app.use(express.json());
 // Logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
