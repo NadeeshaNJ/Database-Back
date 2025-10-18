@@ -334,10 +334,118 @@ const deleteRoom = asyncHandler(async (req, res) => {
     });
 });
 
+/**
+ * Get room types summary
+ */
+const getRoomTypesSummary = asyncHandler(async (req, res) => {
+    const query = `
+        SELECT 
+            rt.room_type_id,
+            rt.name as type_name,
+            rt.capacity,
+            rt.daily_rate,
+            rt.amenities,
+            COUNT(r.room_id) as total_rooms,
+            COUNT(r.room_id) FILTER (WHERE r.status = 'Available') as available_rooms
+        FROM room_type rt
+        LEFT JOIN room r ON rt.room_type_id = r.room_type_id
+        GROUP BY rt.room_type_id, rt.name, rt.capacity, rt.daily_rate, rt.amenities
+        ORDER BY rt.daily_rate
+    `;
+
+    const result = await executeQuery(query);
+
+    res.json({
+        success: true,
+        data: result.rows
+    });
+});
+
+/**
+ * Get room availability
+ */
+const getRoomAvailability = asyncHandler(async (req, res) => {
+    const { start_date, end_date, branch_id, room_type_id } = req.query;
+    
+    let query = `
+        SELECT 
+            r.room_id,
+            r.room_number,
+            r.status,
+            rt.name as room_type_name,
+            b.branch_name
+        FROM room r
+        JOIN room_type rt ON r.room_type_id = rt.room_type_id
+        JOIN branch b ON r.branch_id = b.branch_id
+        WHERE r.status = 'Available'
+        AND r.room_id NOT IN (
+            SELECT room_id 
+            FROM booking
+            WHERE status NOT IN ('Cancelled', 'Checked-Out')
+            AND (
+                (check_in_date <= $1 AND check_out_date >= $2)
+                OR (check_in_date <= $1 AND check_out_date >= $2)
+                OR (check_in_date >= $1 AND check_out_date <= $2)
+            )
+        )
+    `;
+
+    const params = [end_date, start_date];
+    let paramIndex = 2;
+
+    if (branch_id) {
+        query += ` AND r.branch_id = $${++paramIndex}`;
+        params.push(branch_id);
+    }
+
+    if (room_type_id) {
+        query += ` AND r.room_type_id = $${++paramIndex}`;
+        params.push(room_type_id);
+    }
+
+    query += ` ORDER BY r.room_number`;
+
+    const result = await executeQuery(query, params);
+
+    res.json({
+        success: true,
+        data: result.rows
+    });
+});
+
+/**
+ * Update room status
+ */
+const updateRoomStatus = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const result = await executeQuery(
+        'UPDATE room SET status = $1 WHERE room_id = $2 RETURNING *',
+        [status, id]
+    );
+
+    if (!result.rows[0]) {
+        return res.status(404).json({
+            success: false,
+            error: 'Room not found'
+        });
+    }
+
+    res.json({
+        success: true,
+        message: 'Room status updated successfully',
+        data: result.rows[0]
+    });
+});
+
 module.exports = {
     getAllRooms,
     getRoomById,
     createRoom,
     updateRoom,
-    deleteRoom
+    deleteRoom,
+    getRoomTypesSummary,
+    getRoomAvailability,
+    updateRoomStatus
 };
