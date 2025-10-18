@@ -60,11 +60,13 @@ router.post('/login', [
 
     res.json({
       success: true,
-      token,
-      user: {
-        id: user.user_id,
-        username: user.username,
-        role: user.role
+      data: {
+        token,
+        user: {
+          user_id: user.user_id,
+          username: user.username,
+          role: user.role
+        }
       }
     });
   } catch (error) {
