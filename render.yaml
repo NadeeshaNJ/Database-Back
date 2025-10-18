@@ -2,7 +2,7 @@ services:
   # Backend API Service
   - type: web
     name: skynest-backend-api
-    env: node
+    runtime: node
     region: oregon
     plan: free
     buildCommand: npm install
@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 10000
       - key: DB_SSL
-        value: true
+        value: "true"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
