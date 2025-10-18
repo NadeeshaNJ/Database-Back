@@ -34,15 +34,12 @@ router.post('/login', [
 
     const { username, password } = req.body;
 
+    // User table doesn't have email - only username
     const user = await User.findOne({ 
-  where: { 
-    [Op.or]: [
-      { username: username.toLowerCase() },
-      { email: username.toLowerCase() }
-    ]
-  } 
-});
-
+      where: { 
+        username: username.toLowerCase()
+      } 
+    });
 
     if (!user) {
       return res.status(401).json({

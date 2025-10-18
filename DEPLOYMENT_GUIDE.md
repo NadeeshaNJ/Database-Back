@@ -135,17 +135,24 @@ Add these one by one:
 NODE_ENV = production
 PORT = 10000
 DB_SSL = true
-JWT_SECRET = your-super-secret-key-change-this-12345
+JWT_SECRET = 859e1ce6b592d1784f01a4aa01e6fdfe9f6906664dd94e61212bc49741d7682290e326a88c87c863facac55e4db72c05c1c64f8fd6cd7e10fa3560e68fcb2714
 JWT_EXPIRES_IN = 24h
 FRONTEND_URL = https://nadeeshanj.github.io
 ```
 
-**Important:** For `DATABASE_URL`:
-1. Click **"Add Environment Variable"**
-2. Name: `DATABASE_URL`
-3. Value: Click **"Add from Database"**
-4. Select: **skynest-database**
-5. Property: **Connection String**
+**Important:** For `DATABASE_URL` (Manual Entry):
+
+1. **Get your database connection string first:**
+   - Go back to your `skynest-database` dashboard (open in new tab)
+   - Scroll to **"Connections"** section
+   - Copy the **"Internal Database URL"**
+   - Format: `postgresql://user:password@internal-host.oregon-postgres.render.com:5432/database`
+
+2. **Add DATABASE_URL environment variable:**
+   - Click **"Add Environment Variable"**
+   - Key: `DATABASE_URL`
+   - Value: *Paste the full connection string you copied*
+   - Example: `postgresql://skynest_user:abc123@dpg-xyz-a.oregon-postgres.render.com:5432/skynest_db`
 
 ### Step 4: Deploy!
 
