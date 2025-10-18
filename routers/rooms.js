@@ -22,7 +22,16 @@ router.get('/', optionalAuth, [
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], asyncHandler(roomController.getAllRooms));
 
-// Get room by ID
+// Get room types summary - MUST be before /:id route
+router.get('/types/summary', optionalAuth, asyncHandler(roomController.getRoomTypesSummary));
+
+// Get room availability for date range - MUST be before /:id route
+router.get('/availability/check', optionalAuth, [
+  query('start_date').optional().isDate(),
+  query('end_date').optional().isDate()
+], asyncHandler(roomController.getRoomAvailability));
+
+// Get room by ID - MUST be after specific routes to avoid catching them
 router.get('/:id', optionalAuth, asyncHandler(roomController.getRoomById));
 
 // Create new room (admin/manager only)
@@ -39,18 +48,9 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'manager'), asyncH
 // Delete room (admin only)
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), asyncHandler(roomController.deleteRoom));
 
-// Get room availability for date range
-router.get('/availability/check', optionalAuth, [
-  query('start_date').optional().isDate(),
-  query('end_date').optional().isDate()
-], asyncHandler(roomController.getRoomAvailability));
-
 // Update room status (admin/manager only)
 router.patch('/:id/status', [
   body('status').isIn(['available', 'occupied', 'maintenance', 'cleaning']).withMessage('Invalid room status')
 ], authenticateToken, authorizeRoles('admin', 'manager'), asyncHandler(roomController.updateRoomStatus));
-
-// Get room types summary
-router.get('/types/summary', optionalAuth, asyncHandler(roomController.getRoomTypesSummary));
 
 module.exports = router;
