@@ -128,7 +128,31 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // 🛑 FIX: GLOBAL Body parsing middleware is REMOVED from here to prevent GET crashes.
 // It is applied locally to the routers below.
 
-// ✅ HEALTH CHECK ROUTE - MOVED TO TOP
+// ✅ ROOT ROUTE - Welcome message
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true,
+    message: 'SkyNest Hotel Management API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      branches: '/api/branches',
+      rooms: '/api/rooms',
+      guests: '/api/guests',
+      bookings: '/api/bookings',
+      payments: '/api/payments',
+      services: '/api/services',
+      serviceUsage: '/api/service-usage',
+      billing: '/api/billing',
+      reports: '/api/reports'
+    },
+    documentation: 'https://github.com/NadeeshaNJ/Database-Back'
+  });
+});
+
+// ✅ HEALTH CHECK ROUTE
 app.get('/api/health', (req, res) => {
   res.json({ 
     success: true, 
