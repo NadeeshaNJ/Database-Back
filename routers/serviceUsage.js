@@ -17,8 +17,8 @@ router.get('/', [
     query('limit').optional().isInt({ min: 1, max: 1000 })
 ], optionalAuth, asyncHandler(serviceUsageController.getAllServiceUsages));
 
-// Get service usages by booking ID
-router.get('/booking/:bookingId', optionalAuth, asyncHandler(serviceUsageController.getServiceUsagesByBooking));
+// Get service usages by booking IDs
+router.get('/booking/:bookingId ', optionalAuth, asyncHandler(serviceUsageController.getServiceUsagesByBooking));
 
 // Create new service usage - Only Admin, Manager, Receptionist
 router.post('/', [
