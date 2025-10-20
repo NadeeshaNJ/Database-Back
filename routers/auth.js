@@ -34,17 +34,22 @@ router.post('/login', [
 
     const { username, password } = req.body;
 
-    // User table doesn't have email - only username
+    // Find user with employee information (includes branch_id)
     const user = await User.findOne({ 
       where: { 
         username: username.toLowerCase()
-      } 
+      },
+      include: [{
+        association: 'Employee',
+        required: false,
+        attributes: ['employee_id', 'branch_id', 'name', 'email']
+      }]
     });
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid credentials no users'
+        error: 'Invalid credentials'
       });
     }
 
@@ -52,9 +57,14 @@ router.post('/login', [
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid credentials Invalid password'
+        error: 'Invalid credentials'
       });
     }
+
+    // Extract employee data if exists
+    const employee = user.Employee;
+    const branch_id = employee?.branch_id || null;
+    const employee_id = employee?.employee_id || null;
 
     const token = generateToken(user.user_id, user.role);
 
@@ -65,7 +75,9 @@ router.post('/login', [
         user: {
           user_id: user.user_id,
           username: user.username,
-          role: user.role
+          role: user.role,
+          branch_id: branch_id,  // ← NOW INCLUDED!
+          employee_id: employee_id
         }
       }
     });
