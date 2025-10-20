@@ -2,7 +2,7 @@ const userSeed = require('./users.seed');
 const employeeSeed = require('./employees.seed');
 const roomSeed = require('./rooms.seed');
 const guestSeed = require('./guests.seed');
-const bookingSeed = require('./bookings.seed');
+const bookingSeed = require('./booking.seed'); // Fixed: booking.seed not bookings.seed
 const { sequelize } = require('../models');
 
 const seedAll = async () => {

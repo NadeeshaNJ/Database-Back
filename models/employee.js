@@ -40,7 +40,7 @@ const Employee = sequelize.define('Employee', {
     allowNull: false
   }
 }, {
-  tableName: 'employees',
+  tableName: 'employee', // Fixed: Table name is singular in database
   timestamps: true
 });
 

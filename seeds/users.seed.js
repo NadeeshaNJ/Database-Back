@@ -1,5 +1,5 @@
 const { User } = require('../models');
-const { hashPassword } = require('../utils/helpers');
+const { hashPassword } = require('../utils/helper'); // Fixed: helper.js not helpers.js
 
 const seedUsers = async () => {
   try {
