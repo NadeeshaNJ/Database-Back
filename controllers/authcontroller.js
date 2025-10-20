@@ -492,6 +492,15 @@ const login = asyncHandler(async (req, res) => {
     const result = await executeQuery(query, [username]);
     const user = result.rows[0];
 
+    // 🔍 DEBUG: Log what we got from database
+    console.log('🔍 Login query result for:', username);
+    console.log('  - user_id:', user?.user_id);
+    console.log('  - username:', user?.username);
+    console.log('  - role:', user?.role);
+    console.log('  - employee_id:', user?.employee_id);
+    console.log('  - branch_id:', user?.branch_id);
+    console.log('  - Full user object:', user);
+
     // ❌ 2. Invalid username/email
     if (!user) {
         return res.status(401).json({
