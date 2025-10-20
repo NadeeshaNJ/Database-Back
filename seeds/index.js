@@ -1,4 +1,5 @@
 const userSeed = require('./users.seed');
+const employeeSeed = require('./employees.seed');
 const roomSeed = require('./rooms.seed');
 const guestSeed = require('./guests.seed');
 const bookingSeed = require('./bookings.seed');
@@ -14,6 +15,7 @@ const seedAll = async () => {
     
     // Run seeds in order
     await userSeed();
+    await employeeSeed(); // Must run after userSeed
     await roomSeed();
     await guestSeed();
     await bookingSeed();

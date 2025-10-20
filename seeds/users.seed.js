@@ -8,37 +8,34 @@ const seedUsers = async () => {
     const users = [
       {
         username: 'admin',
-        email: 'admin@hotel.com',
         password: await hashPassword('admin123'),
-        role: 'admin',
-        is_active: true
+        role: 'Admin' // Capitalized to match database schema
       },
       {
         username: 'manager',
-        email: 'manager@hotel.com',
         password: await hashPassword('manager123'),
-        role: 'manager',
-        is_active: true
+        role: 'Manager' // Capitalized to match database schema
       },
       {
         username: 'reception',
-        email: 'reception@hotel.com',
         password: await hashPassword('reception123'),
-        role: 'receptionist',
-        is_active: true
+        role: 'Receptionist' // Capitalized to match database schema
+      },
+      {
+        username: 'accountant',
+        password: await hashPassword('accountant123'),
+        role: 'Accountant' // New accountant user
       },
       {
         username: 'staff1',
-        email: 'staff1@hotel.com',
         password: await hashPassword('staff123'),
-        role: 'receptionist',
-        is_active: true
+        role: 'Receptionist' // Capitalized to match database schema
       }
     ];
 
     for (const userData of users) {
       await User.findOrCreate({
-        where: { email: userData.email },
+        where: { username: userData.username },
         defaults: userData
       });
     }
