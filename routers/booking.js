@@ -45,6 +45,149 @@ router.post('/', [
     });
 }));
 
+// Get all pre-bookings - Admin, Manager, Receptionist
+router.get('/pre-bookings', optionalAuth, asyncHandler(async (req, res) => {
+    const { pool } = require('../config/database');
+    const { branch_id } = req.query;
+    
+    let query = `
+        SELECT 
+            pb.pre_booking_id,
+            pb.guest_id,
+            pb.capacity,
+            pb.prebooking_method,
+            pb.expected_check_in,
+            pb.expected_check_out,
+            pb.room_id,
+            pb.created_at,
+            g.first_name || ' ' || g.last_name as guest_name,
+            g.email as guest_email,
+            g.phone as guest_phone,
+            r.room_number,
+            rt.name as room_type,
+            rt.price_per_night,
+            b.branch_name
+        FROM pre_booking pb
+        JOIN guests g ON pb.guest_id = g.id
+        JOIN room r ON pb.room_id = r.room_id
+        JOIN room_type rt ON r.room_type_id = rt.room_type_id
+        JOIN branch b ON r.branch_id = b.branch_id
+        WHERE pb.pre_booking_id NOT IN (
+            SELECT pre_booking_id FROM booking WHERE pre_booking_id IS NOT NULL
+        )
+    `;
+    
+    const params = [];
+    if (branch_id && branch_id !== 'All') {
+        params.push(branch_id);
+        query += ` AND r.branch_id = $${params.length}`;
+    }
+    
+    query += ` ORDER BY pb.created_at DESC`;
+    
+    const result = await pool.query(query, params);
+    
+    res.json({
+        success: true,
+        data: { preBookings: result.rows }
+    });
+}));
+
+// Convert pre-booking to confirmed booking - Admin, Manager, Receptionist
+router.post('/pre-booking/:id/confirm', 
+    authenticateToken, 
+    authorizeRoles('Admin', 'Manager', 'Receptionist'), 
+    asyncHandler(async (req, res) => {
+        const { pool } = require('../config/database');
+        const { id } = req.params;
+        const { num_adults, num_children, special_requests } = req.body;
+        
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            // Get pre-booking details
+            const preBookingQuery = `
+                SELECT pb.*, r.room_id, r.room_number, r.branch_id
+                FROM pre_booking pb
+                JOIN room r ON pb.room_id = r.room_id
+                WHERE pb.pre_booking_id = $1
+            `;
+            const preBookingResult = await client.query(preBookingQuery, [id]);
+            
+            if (preBookingResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({
+                    success: false,
+                    error: 'Pre-booking not found'
+                });
+            }
+            
+            const preBooking = preBookingResult.rows[0];
+            
+            // Check if already converted
+            const existingBookingCheck = await client.query(
+                'SELECT booking_id FROM booking WHERE pre_booking_id = $1',
+                [id]
+            );
+            
+            if (existingBookingCheck.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({
+                    success: false,
+                    error: 'This pre-booking has already been converted to a booking'
+                });
+            }
+            
+            // Create confirmed booking
+            const bookingResult = await client.query(
+                `INSERT INTO public.booking (
+                    guest_id, 
+                    room_id, 
+                    check_in_date, 
+                    check_out_date, 
+                    num_adults, 
+                    num_children, 
+                    special_requests, 
+                    status,
+                    pre_booking_id,
+                    created_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'Confirmed', $8, CURRENT_TIMESTAMP)
+                RETURNING booking_id`,
+                [
+                    preBooking.guest_id,
+                    preBooking.room_id,
+                    preBooking.expected_check_in,
+                    preBooking.expected_check_out,
+                    num_adults || preBooking.capacity,
+                    num_children || 0,
+                    special_requests || null,
+                    id
+                ]
+            );
+            
+            await client.query('COMMIT');
+            
+            res.json({
+                success: true,
+                message: 'Pre-booking successfully converted to confirmed booking',
+                data: { 
+                    booking_id: bookingResult.rows[0].booking_id,
+                    room_number: preBooking.room_number
+                }
+            });
+            
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    })
+);
+
 // Create pre-booking - Customer selects room type, system auto-assigns room
 router.post('/pre-booking', [
     body('guest_id').isInt({ min: 1 }).withMessage('Valid guest_id is required'),
