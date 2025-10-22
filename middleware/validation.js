@@ -175,11 +175,60 @@ const paymentValidations = {
   ]
 };
 
+// Employee validations
+const employeeValidations = {
+  create: [
+    body('name')
+      .trim()
+      .notEmpty()
+      .withMessage('Employee name is required')
+      .isLength({ min: 2, max: 100 })
+      .withMessage('Employee name must be between 2 and 100 characters'),
+    body('email')
+      .isEmail()
+      .withMessage('Valid email is required')
+      .isLength({ max: 100 })
+      .withMessage('Email must not exceed 100 characters'),
+    body('contact_no')
+      .trim()
+      .notEmpty()
+      .withMessage('Contact number is required')
+      .isLength({ max: 20 })
+      .withMessage('Contact number must not exceed 20 characters'),
+    body('branch_id')
+      .isInt({ min: 1 })
+      .withMessage('Valid branch ID is required'),
+    body('user_id')
+      .isInt({ min: 1 })
+      .withMessage('Valid user ID is required')
+  ],
+  update: [
+    commonValidations.id,
+    body('name')
+      .optional()
+      .trim()
+      .isLength({ min: 2, max: 100 })
+      .withMessage('Employee name must be between 2 and 100 characters'),
+    body('email')
+      .optional()
+      .isEmail()
+      .withMessage('Valid email is required')
+      .isLength({ max: 100 })
+      .withMessage('Email must not exceed 100 characters'),
+    body('contact_no')
+      .optional()
+      .trim()
+      .isLength({ max: 20 })
+      .withMessage('Contact number must not exceed 20 characters')
+  ]
+};
+
 module.exports = {
   commonValidations,
   authValidations,
   roomValidations,
   bookingValidations,
   guestValidations,
-  paymentValidations
+  paymentValidations,
+  employeeValidations
 };
