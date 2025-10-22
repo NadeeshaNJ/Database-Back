@@ -1,10 +1,9 @@
-// // In middleware/authorize.js (Populate this file)
+// In middleware/authorize.js
 
-// // The actual authorization logic is usually in auth.js, but for simplicity, 
-// // let's assume it's imported here:
-// const { authorizeRoles } = require('./auth'); // Assuming auth.js contains authorizeRoles
+// The actual authorization logic is in auth.js
+const { authorizeRoles } = require('./auth');
 
-// // Export authorizeRoles under the name 'authorize' to satisfy the router import
-// module.exports = {
-//     authorize: authorizeRoles 
-// };
+// Export authorizeRoles under the name 'authorize' to satisfy the router import
+module.exports = {
+    authorize: authorizeRoles 
+};

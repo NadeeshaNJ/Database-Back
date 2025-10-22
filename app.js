@@ -95,6 +95,7 @@ const servicesRoutes = require('./routers/services');
 const branchRoutes = require('./routers/branches');
 const billingRoutes = require('./routers/billing');
 const reportsRoutes = require('./routers/reports');
+const employeeRoutes = require('./routers/employees');
 
 const app = express();
 
@@ -146,7 +147,8 @@ app.get('/', (req, res) => {
       services: '/api/services',
       serviceUsage: '/api/service-usage',
       billing: '/api/billing',
-      reports: '/api/reports'
+      reports: '/api/reports',
+      employees: '/api/employees'
     },
     documentation: 'https://github.com/NadeeshaNJ/Database-Back'
   });
@@ -179,6 +181,7 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/employees', jsonParser, urlencodedParser, employeeRoutes);
 
 // Error handling middleware
 app.use((error, req, res, next) => {
