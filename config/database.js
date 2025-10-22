@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// Use DATABASE_URL if provided (Render/Heroku style), otherwise use individual vars
+// Use DATABASE_URL if provided (Render/Heroku style), otherwise use individual varsed
 const databaseUrl = process.env.DATABASE_URL;
 
 // Configuration for raw SQL queries
