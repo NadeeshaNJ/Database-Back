@@ -60,19 +60,20 @@ router.get('/pre-bookings', optionalAuth, asyncHandler(async (req, res) => {
             pb.expected_check_out,
             pb.room_id,
             pb.created_at,
-            g.first_name || ' ' || g.last_name as guest_name,
+            g.full_name as guest_name,
             g.email as guest_email,
             g.phone as guest_phone,
             r.room_number,
             rt.name as room_type,
-            rt.price_per_night,
+            rt.daily_rate as price_per_night,
             b.branch_name
         FROM pre_booking pb
-        JOIN guests g ON pb.guest_id = g.id
+        JOIN guest g ON pb.guest_id = g.guest_id
         JOIN room r ON pb.room_id = r.room_id
         JOIN room_type rt ON r.room_type_id = rt.room_type_id
         JOIN branch b ON r.branch_id = b.branch_id
-        WHERE pb.pre_booking_id NOT IN (
+        WHERE pb.room_id IS NOT NULL
+        AND pb.pre_booking_id NOT IN (
             SELECT pre_booking_id FROM booking WHERE pre_booking_id IS NOT NULL
         )
     `;
