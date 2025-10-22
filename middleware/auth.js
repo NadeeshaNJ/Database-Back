@@ -1,114 +1,62 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
 
 /**
- * Ensures the request has a valid, unexpired token and attaches the decoded
- * user data (including userId, role, and guestId) to req.user.
+ * Middleware to authenticate JWT token
  */
-const authenticateToken = async (req, res, next) => {
+const authenticateToken = (req, res, next) => {
   try {
+    // Get token from header
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
     if (!token) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        error: 'Access token required' 
+        error: 'Access token is required'
       });
     }
 
-    // 1. Verify and Decode the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // 2. Attach the DECODED JWT payload to req.user
-    // This payload already contains userId, role, and guestId (if present in the token).
-    // This allows controllers to access req.user.guestId, req.user.userId, etc., without
-    // needing another complex database query here.
-    req.user = decoded; 
-    
-    // Optional Security Check: Verify user still exists in the database
-    // We only select essential, existing columns (user_id, username)
-    const user = await User.findByPk(decoded.userId, {
-      attributes: ['user_id', 'username']
+    // Verify token
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) {
+        return res.status(403).json({
+          success: false,
+          error: 'Invalid or expired token'
+        });
+      }
+
+      // Attach user info to request
+      req.user = user;
+      next();
     });
-
-    if (!user) {
-      return res.status(401).json({ 
-        success: false,
-        error: 'Invalid token or user not found in database'
-      });
-    }
-
-    // Since the database does not have an 'is_active' column, we remove that faulty check entirely.
-    
-    next();
   } catch (error) {
-    // This catches JWT errors (expired, tampered, invalid signature)
-    // The previous error of 'user inactive' is now resolved.
-    return res.status(403).json({ 
+    return res.status(500).json({
       success: false,
-      error: 'Invalid or expired token' 
+      error: 'Token authentication failed'
     });
   }
 };
 
 /**
- * Authorizes the user based on their role included in the JWT payload.
+ * Middleware to authorize based on user roles
+ * Usage: authorizeRoles('Admin', 'Manager')
  */
-// In middleware/auth.js
-
-// const authorizeRoles = (...roles) => {
-//   return (req, res, next) => {
-    
-//     // 1. Check 1: Ensure the user object is attached and has a role property.
-//     // We must return a clear error if the role is truly missing from the token.
-//     if (!req.user || req.user.role === undefined || req.user.role === null) {
-//         return res.status(403).json({ 
-//             success: false,
-//             error: 'Access denied. User role not defined in token.' // More specific message
-//         });
-//     }
-
-//     // 2. Perform Case-Insensitive Comparison
-//     // Ensure the role is treated as a string before calling toLowerCase().
-//     const userRole = String(req.user.role).toLowerCase(); 
-//     const allowedRoles = roles.map(role => String(role).toLowerCase()); // Also convert allowed roles to strings
-
-//     if (!allowedRoles.includes(userRole)) { 
-//       return res.status(403).json({ 
-//         success: false,
-//         error: 'Access denied. Insufficient permissions.' 
-//       });
-//     }
-
-//     next();
-//   };
-// };
-
-const authorizeRoles = (...roles) => {
+const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
-    // 1. Ensure req.user and req.user.role exist
-    if (!req.user || !req.user.role) {
-      return res.status(403).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        error: 'Access denied. User role not defined in token.'
+        error: 'Authentication required'
       });
     }
 
-    // 2. Normalize user role: trim spaces and lowercase
-    const userRole = String(req.user.role).trim().toLowerCase();
+    const userRole = req.user.role;
 
-    // 3. Normalize allowed roles
-    const allowedRoles = roles.map(role => String(role).trim().toLowerCase());
-
-    // 4. Debug: log roles (remove or comment out in production)
-    console.log(`DEBUG: userRole="${userRole}", allowedRoles=[${allowedRoles.join(', ')}]`);
-
-    // 5. Check if the user's role exists in allowedRoles
+    // Check if user's role is in the allowed roles
     if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
-        error: `Access denied. User role "${req.user.role}" insufficient.`
+        error: `Access denied. Required roles: ${allowedRoles.join(', ')}`
       });
     }
 
@@ -116,40 +64,41 @@ const authorizeRoles = (...roles) => {
   };
 };
 
-module.exports = { authorizeRoles };
-
-
-
-
 /**
- * Optionally authenticates a token if one is present, but allows the request to continue if not.
+ * Optional authentication - doesn't fail if no token
+ * Useful for endpoints that work for both authenticated and public users
  */
-const optionalAuth = async (req, res, next) => {
+const optionalAuth = (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      // Optionally verify user existence again, but primarily attach the payload data
-      const user = await User.findByPk(decoded.userId, {
-        attributes: ['user_id', 'username']
-      });
-
-      if (user) {
-        req.user = decoded;
-      }
+    if (!token) {
+      // No token provided, continue without user
+      req.user = null;
+      return next();
     }
-    next();
+
+    // Verify token if provided
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) {
+        // Invalid token, continue without user
+        req.user = null;
+      } else {
+        // Valid token, attach user
+        req.user = user;
+      }
+      next();
+    });
   } catch (error) {
-    // Do not throw an error if token is invalid/expired; just proceed without req.user
+    // Error in processing, continue without user
+    req.user = null;
     next();
   }
 };
 
-module.exports = { 
-  authenticateToken, 
-  authorizeRoles, 
-  optionalAuth 
+module.exports = {
+  authenticateToken,
+  authorizeRoles,
+  optionalAuth
 };
