@@ -1,4 +1,4 @@
-const { Employee, Branch, User } = require('../models');
+const { Employee, Branch, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 // Get all employees with optional filtering
@@ -12,45 +12,54 @@ exports.getAllEmployees = async (req, res) => {
       offset = 0 
     } = req.query;
 
-    const whereClause = {};
-    const userWhereClause = {};
-
-    // Filter by branch
+    // Build WHERE conditions
+    let whereConditions = [];
+    let params = {};
+    
     if (branch_id) {
-      whereClause.branch_id = branch_id;
+      whereConditions.push('e.branch_id = :branch_id');
+      params.branch_id = branch_id;
     }
-
-    // Filter by role (role is stored in user_account table)
+    
     if (role) {
-      userWhereClause.role = role;
+      whereConditions.push('u.role = :role');
+      params.role = role;
     }
-
-    // Search by name or email
+    
     if (search) {
-      whereClause[Op.or] = [
-        { name: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } }
-      ];
+      whereConditions.push('(e.name ILIKE :search OR e.email ILIKE :search)');
+      params.search = `%${search}%`;
     }
+    
+    const whereClause = whereConditions.length > 0 
+      ? 'WHERE ' + whereConditions.join(' AND ')
+      : '';
 
-    const employees = await Employee.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: Branch,
-          as: 'Branch',
-          attributes: ['branch_id', 'branch_name', 'address', 'contact_no']
-        },
-        {
-          model: User,
-          as: 'User',
-          attributes: ['id', 'username', 'role'],
-          where: Object.keys(userWhereClause).length > 0 ? userWhereClause : undefined
-        }
-      ],
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      order: [['employee_id', 'ASC']]
+    // Execute raw SQL query
+    const [employees] = await sequelize.query(`
+      SELECT 
+        e.employee_id,
+        e.user_id,
+        e.branch_id,
+        e.name,
+        e.email,
+        e.contact_no,
+        b.branch_name,
+        b.address as branch_address,
+        u.username,
+        u.role
+      FROM employee e
+      LEFT JOIN branch b ON e.branch_id = b.branch_id
+      LEFT JOIN user_account u ON e.user_id = u.user_id
+      ${whereClause}
+      ORDER BY e.employee_id ASC
+      LIMIT :limit OFFSET :offset
+    `, {
+      replacements: {
+        ...params,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      }
     });
 
     // Format the response
@@ -61,12 +70,10 @@ exports.getAllEmployees = async (req, res) => {
       name: emp.name,
       email: emp.email,
       contact_no: emp.contact_no,
-      branch_name: emp.Branch?.branch_name,
-      branch_address: emp.Branch?.address,
-      role: emp.User?.role,
-      username: emp.User?.username,
-      createdAt: emp.createdAt,
-      updatedAt: emp.updatedAt
+      branch_name: emp.branch_name,
+      branch_address: emp.branch_address,
+      role: emp.role,
+      username: emp.username
     }));
 
     res.json({
@@ -91,27 +98,34 @@ exports.getEmployeeById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const employee = await Employee.findByPk(id, {
-      include: [
-        {
-          model: Branch,
-          as: 'Branch',
-          attributes: ['branch_id', 'branch_name', 'address', 'contact_no']
-        },
-        {
-          model: User,
-          as: 'User',
-          attributes: ['id', 'username', 'role']
-        }
-      ]
+    const [employees] = await sequelize.query(`
+      SELECT 
+        e.employee_id,
+        e.user_id,
+        e.branch_id,
+        e.name,
+        e.email,
+        e.contact_no,
+        b.branch_name,
+        b.address as branch_address,
+        u.username,
+        u.role
+      FROM employee e
+      LEFT JOIN branch b ON e.branch_id = b.branch_id
+      LEFT JOIN user_account u ON e.user_id = u.user_id
+      WHERE e.employee_id = :id
+    `, {
+      replacements: { id }
     });
 
-    if (!employee) {
+    if (!employees || employees.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'Employee not found'
       });
     }
+
+    const employee = employees[0];
 
     res.json({
       success: true,
@@ -123,11 +137,9 @@ exports.getEmployeeById = async (req, res) => {
           name: employee.name,
           email: employee.email,
           contact_no: employee.contact_no,
-          branch_name: employee.Branch?.branch_name,
-          role: employee.User?.role,
-          username: employee.User?.username,
-          createdAt: employee.createdAt,
-          updatedAt: employee.updatedAt
+          branch_name: employee.branch_name,
+          role: employee.role,
+          username: employee.username
         }
       }
     });
@@ -347,29 +359,56 @@ exports.getEmployeeStats = async (req, res) => {
   try {
     const { branch_id } = req.query;
 
-    const whereClause = branch_id ? { branch_id } : {};
+    const whereClause = branch_id ? 'WHERE e.branch_id = :branch_id' : '';
 
-    const employees = await Employee.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: User,
-          as: 'User',
-          attributes: ['role']
-        }
-      ]
+    const [roleStats] = await sequelize.query(`
+      SELECT 
+        u.role,
+        COUNT(*) as count
+      FROM employee e
+      LEFT JOIN user_account u ON e.user_id = u.user_id
+      ${whereClause}
+      GROUP BY u.role
+    `, {
+      replacements: branch_id ? { branch_id } : {}
+    });
+
+    const [branchStats] = await sequelize.query(`
+      SELECT 
+        e.branch_id,
+        b.branch_name,
+        COUNT(*) as count
+      FROM employee e
+      LEFT JOIN branch b ON e.branch_id = b.branch_id
+      ${whereClause}
+      GROUP BY e.branch_id, b.branch_name
+    `, {
+      replacements: branch_id ? { branch_id } : {}
+    });
+
+    const [totalCount] = await sequelize.query(`
+      SELECT COUNT(*) as total
+      FROM employee e
+      ${whereClause}
+    `, {
+      replacements: branch_id ? { branch_id } : {}
     });
 
     const stats = {
-      total: employees.length,
+      total: parseInt(totalCount[0]?.total || 0),
       byRole: {},
       byBranch: {}
     };
 
-    employees.forEach(emp => {
-      const role = emp.User?.role || 'Unknown';
-      stats.byRole[role] = (stats.byRole[role] || 0) + 1;
-      stats.byBranch[emp.branch_id] = (stats.byBranch[emp.branch_id] || 0) + 1;
+    roleStats.forEach(stat => {
+      stats.byRole[stat.role] = parseInt(stat.count);
+    });
+
+    branchStats.forEach(stat => {
+      stats.byBranch[stat.branch_id] = {
+        name: stat.branch_name,
+        count: parseInt(stat.count)
+      };
     });
 
     res.json({

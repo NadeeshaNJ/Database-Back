@@ -19,12 +19,12 @@ async function testEmployees() {
         {
           model: Branch,
           as: 'Branch',
-          attributes: ['branch_id', 'branch_name', 'address', 'contact_no']
+          attributes: ['branch_id', 'branch_name', 'address', 'contact_number']
         },
         {
           model: User,
           as: 'User',
-          attributes: ['id', 'username', 'role']
+          attributes: ['user_id', 'username', 'role']
         }
       ],
       limit: 5

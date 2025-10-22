@@ -53,12 +53,12 @@ Service.hasMany(ServiceUsage, { foreignKey: 'service_id' });
 ServiceUsage.belongsTo(Service, { foreignKey: 'service_id' });
 
 // Branch - Employee Relationships
-Branch.hasMany(Employee, { foreignKey: 'branch_id' });
-Employee.belongsTo(Branch, { foreignKey: 'branch_id' });
+Branch.hasMany(Employee, { foreignKey: 'branch_id', as: 'Employees' });
+Employee.belongsTo(Branch, { foreignKey: 'branch_id', as: 'Branch' });
 
 // User - Employee Relationships
-User.hasOne(Employee, { foreignKey: 'user_id' });
-Employee.belongsTo(User, { foreignKey: 'user_id' });
+User.hasOne(Employee, { foreignKey: 'user_id', as: 'Employee' });
+Employee.belongsTo(User, { foreignKey: 'user_id', as: 'User', targetKey: 'user_id' });
 
 // Test database connection
 const testConnection = async () => {

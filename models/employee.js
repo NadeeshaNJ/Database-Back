@@ -11,7 +11,7 @@ const Employee = sequelize.define('Employee', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'branches',
+      model: 'branch', // Fixed table name
       key: 'branch_id'
     }
   },
@@ -19,8 +19,8 @@ const Employee = sequelize.define('Employee', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'users',
-      key: 'id'
+      model: 'user_account', // Fixed table name
+      key: 'user_id' // Fixed key name
     }
   },
   name: {
@@ -29,7 +29,7 @@ const Employee = sequelize.define('Employee', {
   },
   email: {
     type: DataTypes.STRING(100),
-    allowNull: false,
+    allowNull: true, // Made nullable to match database
     unique: true,
     validate: {
       isEmail: true
@@ -37,11 +37,11 @@ const Employee = sequelize.define('Employee', {
   },
   contact_no: {
     type: DataTypes.STRING(20),
-    allowNull: false
+    allowNull: true // Made nullable to match database
   }
 }, {
   tableName: 'employee', // Fixed: Table name is singular in database
-  timestamps: true
+  timestamps: false // Disable timestamps since the table doesn't have createdAt/updatedAt
 });
 
 module.exports = Employee;
