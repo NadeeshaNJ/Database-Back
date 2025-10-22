@@ -478,8 +478,12 @@ const login = asyncHandler(async (req, res) => {
             u.role,
             e.employee_id,
             e.branch_id,
+            e.full_name AS employee_name,
             u.guest_id,
-            g.email AS guest_email
+            g.email AS guest_email,
+            g.guest_first_name,
+            g.guest_last_name,
+            CONCAT(g.guest_first_name, ' ', g.guest_last_name) AS guest_full_name
         FROM public.user_account u
         LEFT JOIN public.employee e ON u.user_id = e.user_id
         LEFT JOIN public.guest g ON u.guest_id = g.guest_id
@@ -538,6 +542,13 @@ const login = asyncHandler(async (req, res) => {
 
     // 🚫 6. Remove password before sending user data
     const { password_hash, ...safeUser } = user;
+
+    // Add full_name field based on role
+    if (user.role === 'Customer' && user.guest_full_name) {
+        safeUser.full_name = user.guest_full_name;
+    } else if (user.employee_name) {
+        safeUser.full_name = user.employee_name;
+    }
 
     // 🎯 7. Send success response
     res.status(200).json({
