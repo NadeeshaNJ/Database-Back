@@ -32,7 +32,7 @@ router.post('/', [
     
     // Get service details for price calculation
     const serviceResult = await pool.query(
-        'SELECT unit_price, tax_rate_percent FROM public.service WHERE service_id = $1',
+        'SELECT unit_price FROM public.service_catalog WHERE service_id = $1',
         [service_id]
     );
     
@@ -40,23 +40,25 @@ router.post('/', [
         return res.status(404).json({ success: false, error: 'Service not found' });
     }
     
-    const { unit_price, tax_rate_percent } = serviceResult.rows[0];
-    const subtotal = parseFloat(unit_price) * qty;
-    const tax_amount = subtotal * (parseFloat(tax_rate_percent) / 100);
-    const total_charge = subtotal + tax_amount;
+    const { unit_price } = serviceResult.rows[0];
     
-    // Insert service usage
+    // Insert service usage (storing the unit price at the time of use)
     const result = await pool.query(
-        `INSERT INTO public.service_usage (booking_id, service_id, qty, used_on, unit_price, tax_rate_percent, subtotal, tax_amount, total_charge, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
-         RETURNING usage_id`,
-        [booking_id, service_id, qty, used_on, unit_price, tax_rate_percent, subtotal, tax_amount, total_charge]
+        `INSERT INTO public.service_usage (booking_id, service_id, qty, used_on, unit_price_at_use)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING service_usage_id`,
+        [booking_id, service_id, qty, used_on, unit_price]
     );
     
     res.json({
         success: true,
         message: 'Service usage created successfully',
-        data: { usage_id: result.rows[0].usage_id, total_charge }
+        data: { 
+            service_usage_id: result.rows[0].service_usage_id,
+            unit_price_at_use: unit_price,
+            qty: qty,
+            total: parseFloat(unit_price) * qty
+        }
     });
 }));
 
