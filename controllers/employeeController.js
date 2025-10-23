@@ -155,35 +155,76 @@ exports.getEmployeeById = async (req, res) => {
 
 // Create new employee
 exports.createEmployee = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const { 
-      user_id, 
+      username,
+      password,
+      role,
       branch_id, 
       name, 
       email, 
       contact_no 
     } = req.body;
 
+    // Log received data for debugging
+    console.log('Received employee creation data:', {
+      username,
+      hasPassword: !!password,
+      passwordLength: password?.length,
+      role,
+      branch_id,
+      name,
+      email,
+      contact_no
+    });
+
     // Validate required fields
-    if (!user_id || !branch_id || !name) {
+    if (!username || !password || !role || !branch_id || !name) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: user_id, branch_id, and name are required'
+        error: 'Missing required fields: username, password, role, branch_id, and name are required'
       });
     }
 
-    // Check if user exists
-    const user = await User.findByPk(user_id);
-    if (!user) {
-      return res.status(404).json({
+    // Validate password length
+    if (password.length < 6) {
+      await transaction.rollback();
+      return res.status(400).json({
         success: false,
-        error: 'User not found'
+        error: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Validate role is a staff role
+    const validRoles = ['Admin', 'Manager', 'Receptionist', 'Accountant'];
+    if (!validRoles.includes(role)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role. Must be Admin, Manager, Receptionist, or Accountant'
+      });
+    }
+
+    // Check if username already exists
+    const existingUser = await User.findOne({ 
+      where: { username: username.toLowerCase() },
+      transaction 
+    });
+    if (existingUser) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Username already exists'
       });
     }
 
     // Check if branch exists
-    const branch = await Branch.findByPk(branch_id);
+    const branch = await Branch.findByPk(branch_id, { transaction });
     if (!branch) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         error: 'Branch not found'
@@ -192,8 +233,12 @@ exports.createEmployee = async (req, res) => {
 
     // Check if email already exists
     if (email) {
-      const existingEmployee = await Employee.findOne({ where: { email } });
+      const existingEmployee = await Employee.findOne({ 
+        where: { email },
+        transaction 
+      });
       if (existingEmployee) {
+        await transaction.rollback();
         return res.status(400).json({
           success: false,
           error: 'Email already exists'
@@ -201,14 +246,24 @@ exports.createEmployee = async (req, res) => {
       }
     }
 
-    // Create employee
+    // Create user account first
+    const user = await User.create({
+      username: username.toLowerCase(),
+      password_hash: password, // Will be hashed by the model hook
+      role
+    }, { transaction });
+
+    // Create employee record
     const employee = await Employee.create({
-      user_id,
+      user_id: user.user_id,
       branch_id,
       name,
       email,
       contact_no
-    });
+    }, { transaction });
+
+    // Commit transaction
+    await transaction.commit();
 
     // Fetch the created employee with associations
     const createdEmployee = await Employee.findByPk(employee.employee_id, {
@@ -221,19 +276,24 @@ exports.createEmployee = async (req, res) => {
         {
           model: User,
           as: 'User',
-          attributes: ['id', 'username', 'role']
+          attributes: ['user_id', 'username', 'role']
         }
       ]
     });
 
     res.status(201).json({
       success: true,
-      message: 'Employee created successfully',
+      message: 'Employee and user account created successfully',
       data: {
-        employee: createdEmployee
+        employee: createdEmployee,
+        credentials: {
+          username: username.toLowerCase(),
+          note: 'Please save the password securely'
+        }
       }
     });
   } catch (error) {
+    await transaction.rollback();
     console.error('Error creating employee:', error);
     res.status(500).json({
       success: false,
