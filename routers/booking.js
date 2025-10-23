@@ -23,19 +23,41 @@ router.post('/', [
     body('room_id').isInt({ min: 1 }).withMessage('Valid room_id is required'),
     body('check_in_date').isDate().withMessage('Valid check-in date is required'),
     body('check_out_date').isDate().withMessage('Valid check-out date is required'),
-    body('num_adults').optional().isInt({ min: 1 }),
-    body('num_children').optional().isInt({ min: 0 }),
-    body('special_requests').optional().trim()
+    body('booked_rate').optional().isDecimal({ min: 0 }),
+    body('advance_payment').optional().isDecimal({ min: 0 }),
+    body('preferred_payment_method').optional().isIn(['Cash', 'Card', 'Online', 'BankTransfer'])
 ], authenticateToken, authorizeRoles('Admin', 'Manager', 'Receptionist', 'Customer'), asyncHandler(async (req, res) => {
     const { pool } = require('../config/database');
-    const { guest_id, room_id, check_in_date, check_out_date, num_adults, num_children, special_requests } = req.body;
+    const { guest_id, room_id, check_in_date, check_out_date, booked_rate, advance_payment, preferred_payment_method } = req.body;
+    
+    // Get room rate if not provided
+    let finalRate = booked_rate;
+    if (!finalRate) {
+        const roomResult = await pool.query(
+            `SELECT rt.daily_rate 
+             FROM room r 
+             JOIN room_type rt ON r.room_type_id = rt.room_type_id 
+             WHERE r.room_id = $1`,
+            [room_id]
+        );
+        if (roomResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Room not found' });
+        }
+        finalRate = roomResult.rows[0].daily_rate;
+    }
+    
+    // Calculate minimum advance payment (10% of total)
+    const days = Math.ceil((new Date(check_out_date) - new Date(check_in_date)) / (1000 * 60 * 60 * 24));
+    const totalAmount = days * finalRate;
+    const minAdvance = Math.round(totalAmount * 0.10 * 100) / 100;
+    const finalAdvance = advance_payment || minAdvance;
     
     // Insert booking
     const result = await pool.query(
-        `INSERT INTO public.booking (guest_id, room_id, check_in_date, check_out_date, num_adults, num_children, special_requests, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Confirmed', CURRENT_TIMESTAMP)
+        `INSERT INTO public.booking (guest_id, room_id, check_in_date, check_out_date, booked_rate, advance_payment, preferred_payment_method, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Booked', CURRENT_TIMESTAMP)
          RETURNING booking_id`,
-        [guest_id, room_id, check_in_date, check_out_date, num_adults || 1, num_children || 0, special_requests]
+        [guest_id, room_id, check_in_date, check_out_date, finalRate, finalAdvance, preferred_payment_method || 'Cash']
     );
     
     res.json({

@@ -4,28 +4,28 @@ const { BOOKING_STATUS } = require('../utils/enums');
 
 const Booking = sequelize.define('Booking', {
   booking_id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     primaryKey: true,
     autoIncrement: true
   },
-  guest_id: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'guests',
-      key: 'guest_id'
-    }
-  },
   pre_booking_id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     allowNull: true,
     references: {
       model: 'pre_bookings',
       key: 'pre_booking_id'
     }
   },
+  guest_id: {
+    type: DataTypes.BIGINT,
+    allowNull: false,
+    references: {
+      model: 'guests',
+      key: 'guest_id'
+    }
+  },
   room_id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     allowNull: false,
     references: {
       model: 'rooms',
@@ -33,11 +33,11 @@ const Booking = sequelize.define('Booking', {
     }
   },
   check_in_date: {
-    type: DataTypes.DATE,
+    type: DataTypes.DATEONLY,
     allowNull: false
   },
   check_out_date: {
-    type: DataTypes.DATE,
+    type: DataTypes.DATEONLY,
     allowNull: false,
     validate: {
       isAfterCheckIn(value) {
@@ -51,6 +51,34 @@ const Booking = sequelize.define('Booking', {
     type: DataTypes.ENUM(...Object.values(BOOKING_STATUS)),
     allowNull: false,
     defaultValue: BOOKING_STATUS.BOOKED
+  },
+  booked_rate: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  tax_rate_percent: {
+    type: DataTypes.DECIMAL(5, 2),
+    defaultValue: 0,
+    allowNull: false
+  },
+  discount_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    allowNull: false
+  },
+  late_fee_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    allowNull: false
+  },
+  preferred_payment_method: {
+    type: DataTypes.ENUM('Cash', 'Card', 'Online', 'BankTransfer'),
+    allowNull: true
+  },
+  advance_payment: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    allowNull: false
   },
   created_at: {
     type: DataTypes.DATE,
